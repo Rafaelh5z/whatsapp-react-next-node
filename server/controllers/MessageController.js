@@ -1,4 +1,5 @@
 import getPrismaInstance from "../utils/PrismaClient.js"
+import { renameSync } from "fs"
 
 /**
  * Create a new message
@@ -42,6 +43,13 @@ export const addMessage = async (req, res, next) => {
     }
 }
 
+/**
+ * Get all messages between two users
+ * @param {*} req 
+ * @param {*} res 
+ * @param {*} next 
+ * @returns List of messages between two users
+ */
 export const getMessages = async (req, res, next) => {
 
     try {
@@ -93,6 +101,55 @@ export const getMessages = async (req, res, next) => {
         return res.status(200).json({
             messages
         })
+    } catch (err) {
+        
+        next(err)
+    }
+}
+
+/**
+ * Add image message
+ * @param {*} req 
+ * @param {*} res 
+ * @param {*} next 
+ * @returns status 201 if image is uploaded successfully or 400 if image is not uploaded
+ */
+export const addImageMessage = async (req, res, next) => {
+
+    try {
+        
+        if (req.file) {
+            
+            const date = Date.now()
+
+            let filename = "uploads/images/" + date + req.file.originalname
+            renameSync(req.file.path, filename)
+
+            const prisma = getPrismaInstance()
+
+            const { from, to } = req.query
+
+            if (from && to) {
+                
+                const message = await prisma.messages.create({
+                    data: {
+                        message: filename,
+                        sender: { connect: { id: parseInt(from) } },
+                        reciever: { connect: { id: parseInt(to) } },
+                        messageStatus: 'sent',
+                        type: 'image',
+                    },
+                })
+
+                return res.status(201).json({
+                    message
+                })
+            }
+
+            return res.status(400).send("Sender and receiver are required")
+        }
+
+        return res.status(400).send("Image is required")
     } catch (err) {
         
         next(err)
