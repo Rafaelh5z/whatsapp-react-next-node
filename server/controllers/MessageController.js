@@ -155,3 +155,52 @@ export const addImageMessage = async (req, res, next) => {
         next(err)
     }
 }
+
+/**
+ * Add audio message
+ * @param {*} req
+ * @param {*} res
+ * @param {*} next
+ * @returns status 201 if audio is uploaded successfully or 400 if audio is not uploaded
+ */
+export const addAudioMessage = async (req, res, next) => {
+
+    try {
+        
+        if (req.file) {
+            
+            const date = Date.now()
+
+            let filename = "uploads/recordings/" + date + req.file.originalname
+            renameSync(req.file.path, filename)
+
+            const prisma = getPrismaInstance()
+
+            const { from, to } = req.query
+
+            if (from && to) {
+                
+                const message = await prisma.messages.create({
+                    data: {
+                        message: filename,
+                        sender: { connect: { id: parseInt(from) } },
+                        reciever: { connect: { id: parseInt(to) } },
+                        messageStatus: 'sent',
+                        type: 'audio',
+                    },
+                })
+
+                return res.status(201).json({
+                    message
+                })
+            }
+
+            return res.status(400).send("Sender and receiver are required")
+        }
+
+        return res.status(400).send("Audio is required")
+    } catch (err) {
+        
+        next(err)
+    }
+}
