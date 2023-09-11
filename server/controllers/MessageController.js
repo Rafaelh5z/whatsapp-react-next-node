@@ -204,3 +204,118 @@ export const addAudioMessage = async (req, res, next) => {
         next(err)
     }
 }
+
+export const getInitialContactsWithMessages = async (req, res, next) => {
+
+    try {
+        
+        const userId = parseInt(req.params.from)
+        const prisma = getPrismaInstance()
+        const user = await prisma.user.findUnique({
+            where: {
+                id: userId
+            },
+            include: {
+                sentMessages: {
+                    include: {
+                        reciever: true,
+                        sender: true
+                    },
+                    orderBy: {
+                        createdAt: 'desc',
+                    },
+                },
+                recievedMessages: {
+                    include: {
+                        reciever: true,
+                        sender: true
+                    },
+                    orderBy: {
+                        createdAt: 'desc',
+                    },
+                },
+            }
+        })
+
+        const messages = [...user.sentMessages, ...user.recievedMessages]
+
+        messages.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+
+        const users = new Map()
+        const messagesStatusChange = []
+
+        messages.forEach(msg => {
+            
+            const isSender = msg.senderId === userId
+            const calculatedId = isSender ? msg.recieverId : msg.senderId
+
+            if (msg.messageStatus === 'sent') {
+                
+                messagesStatusChange.push(msg.id)
+            }
+
+            const {id, type, message, messageStatus, createdAt, senderId, recieverId} = msg
+
+            if (!users.get(calculatedId)) {
+                
+                let user = {
+                    messageId: id,
+                    type,
+                    message,
+                    messageStatus,
+                    createdAt,
+                    senderId,
+                    recieverId,
+                }
+
+                if (isSender) {
+                    
+                    user = {
+                        ...user,
+                        ...msg.reciever,
+                        totalUnreadMessages: 0,
+                    }
+                }else{
+
+                    user = {
+                        ...user,
+                        ...msg.sender,
+                        totalUnreadMessages: messageStatus !== 'read'? 1 : 0,
+                    }
+                }
+
+                users.set(calculatedId, { ...user })
+            }else if(messageStatus !== 'read' && !isSender){
+
+                const user = users.get(calculatedId) 
+
+                users.set(calculatedId, {
+                    ...user,
+                    totalUnreadMessages: user.totalUnreadMessages+1,
+                })
+            }
+        })
+
+        if (messagesStatusChange.length) {
+            
+            await prisma.messages.updateMany({
+                where: {
+                    id: {
+                        in: messagesStatusChange
+                    }
+                },
+                data: {
+                    messageStatus: 'delivered'
+                }
+            })
+        }
+
+        return res.status(200).json({
+            users: Array.from(users.values()),
+            onlineUsers: Array.from(onlineUsers.keys())
+        })
+    } catch (error) {
+
+        next(error)
+    }
+}
