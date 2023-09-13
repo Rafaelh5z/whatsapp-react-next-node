@@ -9,12 +9,30 @@ import ChatLIstItem from "./ChatLIstItem"
 function ContactsList() {
 
   const [allContacts, setAllContacts] = useState([])
+  const [searchTerm, setSearchTerm] = useState("")
+  const [searchContacts, setSearchContacts] = useState([])
 
   const [{}, dispatch] = useStateProvider()
 
   useEffect(() => {
 
+    if (searchTerm.length) {
+      
+      const filteredData = {}
 
+      Object.keys(allContacts).forEach((key) => {
+
+        filteredData[key] = allContacts[key].filter(obj => obj.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      })
+
+      setSearchContacts(filteredData)
+    }else{
+
+      setSearchContacts(allContacts)
+    }
+  }, [searchTerm])
+
+  useEffect(() => {
 
     const getContacts = async () => {
 
@@ -25,6 +43,7 @@ function ContactsList() {
         } = await axios.get(GET_ALL_CONTACTS_ROUTE)
         
         setAllContacts(users)  
+        setSearchContacts(users)
       } catch (err) {
         
         console.error(err)
@@ -62,20 +81,22 @@ function ContactsList() {
                 type="text"
                 className="bg-transparent text-sm focus:outline-none text-white w-full"
                 placeholder="Search contact"
+                value={searchTerm}
+                onChange={e=>setSearchTerm(e.target.value)}
               />
             </div>
           </div>
         </div>
 
         {
-          Object.entries(allContacts).map(([initialLetter, userList]) => {
+          Object.entries(searchContacts).map(([initialLetter, userList]) => {
 
             return (
+              userList.length > 0 &&
               <div key={Date.now() + initialLetter}>
                 <div className="text-teal-light pl-10 py-5">
-                  {initialLetter}
+                    {initialLetter}
                 </div>
-
                 {
                   userList.map(contact => {
 
