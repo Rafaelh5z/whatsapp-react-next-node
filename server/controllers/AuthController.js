@@ -1,4 +1,5 @@
 import getPrismaInstance from "../utils/PrismaClient.js"
+import { generateToken04 } from "../utils/TokenGenerator.js"
 
 /**
  * Verify if the user exists in the database
@@ -133,6 +134,33 @@ export const getAllUsers = async (req, res, next) => {
 
     } catch (err) {
         
+        next(err)
+    }
+}
+
+export const generateToken = (req, res, next) => {
+    
+    try {
+        
+        const appId = parseInt(process.env.ZEGO_APP_ID)
+        const serverSecret = process.env.ZEGO_SERVER_ID
+        console.log("🚀 ~ file: AuthController.js:147 ~ generateToken ~ serverSecret:", serverSecret)
+        const userId = req.params.userId
+        const effectiveTime = 3600
+        const payload = ""
+
+        if (appId && serverSecret && userId) {
+            
+            const token = generateToken04(appId, userId, serverSecret, effectiveTime, payload)
+
+            return res.status(200).json({
+                token
+            })
+        }
+
+        return res.status(400).send("App ID, Server Secret and User ID are required")
+    } catch (err) {
+        console.log("ERROR:", err)
         next(err)
     }
 }
